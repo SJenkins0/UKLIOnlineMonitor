@@ -7,9 +7,10 @@
  * ---> ROOT                                 *
  * ---> position.h                           *
  * ---> rndFunc.h                            *
+ * Adapted from Jordan's original scripts    *
  *                                           *
- *                jmmcelwee1@sheffield.ac.uk *
- * ------------------------- J. McElwee ---- */
+ *               s.j.jenkins@liverpool.ac.uk *
+ * ------------------------- S. Jenkins ---- */
 
 #include <iostream>
 #include <vector>
@@ -39,7 +40,8 @@
 #include "TStyle.h"
 #include "TGraphErrors.h"
 
-void extract_data(std::ifstream &file, std::vector<double> &totQ,std::vector<double> &barrelQ,std::vector<int> &year,std::vector<int> &month,std::vector<int> &day,std::vector<int> &hour,std::vector<int> &minute,std::vector<int> &second,std::vector<double> &bottomQ,std::vector<double> &bz0y0Q);
+void extract_dark_data(std::ifstream &file,  std::vector<UInt_t> &time, std::vector<float> &chg);
+void extract_data(std::ifstream &file, std::vector<double> &totQ,std::vector<double> &barrelQ,std::vector<int> &year,std::vector<int> &month,std::vector<int> &day,std::vector<int> &hour,std::vector<int> &minute,std::vector<int> &second,std::vector<double> &bottomQ,std::vector<double> &bz0y0Q,std::vector<double> &bzylt0Q);
 void format_plots(TGraph *graph1,TLegend *leg ,float min, float max, std::string timeform, std::string yaxis, std::string title);
 void format_plots_multi(TGraph *graph1, TGraph *graph2, TLegend *leg,float min, float max, std::string timeform, std::string yaxis, std::string title);
 void normalisation(std::vector<float> &in, float normVal, std::vector<float> &error);
@@ -74,9 +76,15 @@ int main(int argc, char *argv[]){
   }
 
 
+  //Get the noise data
+  std::ifstream dark_file("/disk03/calib4/usr/ukli/monitoring/plotting/noise.dat");
+  std::vector<UInt_t> dark_time;
+  std::vector<float> dark_charge;
+  extract_dark_data(dark_file, dark_time, dark_charge);
+  std::cout << dark_charge.size() << std::endl;
+  
   std::string fileEx = ldir + "/top_dif.dat";
   std::cout << fileEx << std::endl;
-
   
   time_t timer;
   time(&timer);
@@ -85,452 +93,352 @@ int main(int argc, char *argv[]){
   gStyle->SetTitleColor(0);
   gStyle->SetOptStat(0);  
 
-  //  std::vector<std::vector<float>> dateVecVec, totQVecVec, spotQVecVec, date6VecVec,totQ6VecVec,spotQ6VecVec, date24VecVec,totQ24VecVec,spotQ24VecVec,errorTotVecVec,errorTot6VecVec,errorTot24VecVec,errorSpotVecVec,errorSpot6VecVec,errorSpot24VecVec;
-
-
   std::vector<int> run, subrun, year, month, day, hour, minute, second;
-  std::vector<double> totQ, barrelQ, bottomQ, bz0y0Q, bzlt0y0Q;
+  std::vector<double> totQ, barrelQ, bottomQ, bz0y0Q, bzylt0Q;
   std::ifstream file(fileEx);
-  extract_data(file,totQ,barrelQ,year,month,day,hour,minute,second,bottomQ,bz0y0Q);
+  extract_data(file,totQ,barrelQ,year,month,day,hour,minute,second,bottomQ,bz0y0Q,bzylt0Q);
 
+  //Loop over the three time periods here
+  //period == 0: all time
+  //period == 1: 6 hours
+  //period == 2: 24 hours
+  int avenum, time;
+  std::string periodTitle, periodFileEnd;
 
+  for (int period=0; period<3; period++){
+    //Need to set period specific values
+    if (period == 1){
+      avenum = 20;
+      time = timer-21600;
+    }
+    else if (period == 2){
+      avenum = 100;
+      time = timer-86400;
+    }
+    else avenum = 1000;
   
-  int avenum = 1000;
-  std::vector<float> totDataPoints, totQVec, ratioDataPoints, ratioQVec, dateVec, errorRatioVec, errorTotVec, bbDataPoints, bbQVec, errorBBVec;
-  float averageTot = 0;
-  float averageRatio = 0;
-  float averageBB = 0;
-  int count = 0;
-
-
+    std::cout << "Running for period " << period << std::endl;
+    
+    std::vector<float> dateVec;
+    std::vector<float> totDataPoints,      totQVec,     errorTotVec;
+    std::vector<float> barrelDataPoints,   barrelVec,   errorBarVec;
+    std::vector<float> bottomDataPoints,   bottomVec,   errorBotVec;
+    std::vector<float> bzyDataPoints,      bzyVec,      errorBzyVec;
+    std::vector<float> bzylt0DataPoints,   bzylt0Vec,   errorBzylt0Vec;
+    std::vector<float> bzyRatioDataPoints, bzyRatioVec, errorBzyRatioVec;
   
-  int time6 = timer - 21600;
-  int time24 = timer - 86400;
-  std::vector<float> totQ6Vec, ratioQ6Vec, date6Vec, totQ24Vec, ratioQ24Vec, date24Vec, errorTot6Vec,errorTot24Vec, errorRatio6Vec, errorRatio24Vec, tot24DataPoints, ratio24DataPoints, tot6DataPoints, ratio6DataPoints, bbQ6Vec, bbQ24Vec, errorBB6Vec, errorBB24Vec, bb6DataPoints, bb24DataPoints;
-  std::vector<float> barrelDataPoints, barrel24DataPoints, barrel6DataPoints, barrelVec, barrel24Vec, barrel6Vec, errorBarVec, errorBar24Vec, errorBar6Vec;
-  std::vector<float> bottomDataPoints, bottom24DataPoints, bottom6DataPoints, bottomVec, bottom24Vec, bottom6Vec, errorBotVec, errorBot24Vec, errorBot6Vec;
-  std::vector<float> bzyDataPoints, bzy24DataPoints, bzy6DataPoints, bzyVec, bzy24Vec, bzy6Vec, errorBzyVec, errorBzy24Vec, errorBzy6Vec;
-  std::vector<float> bzlt0yDataPoints, bzlt0y24DataPoints, bzlt0y6DataPoints, bzlt0yVec, bzlt0y24Vec, bzlt0y6Vec, errorBzlt0yVec, errorBzlt0y24Vec, errorBzlt0y6Vec;
-  int avenum24 = 100;
-  float averageTot24 = 0;
-  float averageRatio24 = 0;
-  float averageBB24 = 0;
-  float averageBot = 0;
-  float averageBar = 0;
-  float averageBzy = 0;
-  float averageBzlt0y = 0;
-  float averageBot24 = 0;
-  float averageBar24 = 0;
-  float averageBzy24 = 0;
-  float averageBzlt0y24 = 0;
-  float averageBot6 = 0;
-  float averageBar6 = 0;
-  float averageBzy6 = 0;
-  float averageBzlt0y6 = 0;
-  int count24 = 0;
-  int avenum6 = 20;
-  float averageTot6 = 0;
-  float averageRatio6 = 0;
-  float averageBB6 = 0;
-  int count6 = 0;
-  float errorTot,errorRatio,errorTot6,errorRatio6,errorTot24,errorRatio24,errorBB6,errorBB24,errorBB;
-  float errorBar, errorBot, errorBzy, errorBzlt0y, errorBarrel24, errorBottom24, errorBzy24, errorBzlt0y24, errorBarrel6, errorBottom6, errorBzy6, errorBzlt0y6;
+    float averageTot = 0;
+    float averageBot = 0;
+    float averageBar = 0;
+    float averageBzy = 0;
+    float averageBzylt0 = 0;
+    float averageBzyRatio = 0;
+    float errorTot,errorBar, errorBot, errorBzy, errorBzylt0, errorBzyRatio;
 
-  for (int i=0; i<totQ.size(); i++){
-    TDatime date(year.at(i)+1900,month.at(i),day.at(i),hour.at(i),minute.at(i),second.at(i));
-    if (totQ.at(i) > 30000 && totQ.at(i) < 190000){
+    //unnormalised versions
+    std::vector<float> barrelDataPoints_un,   barrelVec_un,   errorBarVec_un;
+    std::vector<float> bottomDataPoints_un,   bottomVec_un,   errorBotVec_un;
+    std::vector<float> bzyDataPoints_un,      bzyVec_un,      errorBzyVec_un;
+    std::vector<float> bzylt0DataPoints_un,   bzylt0Vec_un,   errorBzylt0Vec_un;
+  
+    float averageBot_un = 0;
+    float averageBar_un = 0;
+    float averageBzy_un = 0;
+    float averageBzylt0_un = 0;
+    float errorBar_un, errorBot_un, errorBzy_un, errorBzylt0_un;
+  
+    int count = 0;
 
-    if (i == 0){
-      count++;
-      averageTot += totQ.at(i);
-      averageRatio += bottomQ.at(i)/barrelQ.at(i);
-      averageBB += bottomQ.at(i)/bz0y0Q.at(i);
+    //Loop over all hits in the total charge vector
+    for (int i=0; i<totQ.size(); i++){
+      TDatime date(year.at(i)+1900,month.at(i),day.at(i),hour.at(i),minute.at(i),second.at(i));
+      //Remove large or small outliers
+      if (totQ.at(i) > 30000 && totQ.at(i) < 190000){
 
-      averageBot += bottomQ.at(i)/totQ.at(i);
-      averageBar += barrelQ.at(i)/totQ.at(i);
-      averageBzy += bz0y0Q.at(i)/totQ.at(i);
-      bottomDataPoints.push_back(bottomQ.at(i)/totQ.at(i));
-      barrelDataPoints.push_back(barrelQ.at(i)/totQ.at(i));
-      bzyDataPoints.push_back(bz0y0Q.at(i)/totQ.at(i));
+	//If restricted time period (6 or 24 hour), check the time
+	//Skip if before
+	if (period > 0 && date.Convert() < time) continue;
+      
+	if (i == 0){
+	  count++;
+	  averageTot += totQ.at(i);
+	  averageBot += bottomQ.at(i)/totQ.at(i);
+	  averageBar += barrelQ.at(i)/totQ.at(i);
+	  averageBzy += bz0y0Q.at(i)/totQ.at(i);
+	  averageBzylt0 += bzylt0Q.at(i)/totQ.at(i);
+	  averageBzyRatio += bzylt0Q.at(i)/bz0y0Q.at(i);
+      
+	  bottomDataPoints.push_back(bottomQ.at(i)/totQ.at(i));
+	  barrelDataPoints.push_back(barrelQ.at(i)/totQ.at(i));
+	  bzyDataPoints.push_back(bz0y0Q.at(i)/totQ.at(i));
+	  bzylt0DataPoints.push_back(bzylt0Q.at(i)/totQ.at(i));
+	  bzyRatioDataPoints.push_back(bzylt0Q.at(i)/bz0y0Q.at(i));
+	  totDataPoints.push_back(totQ.at(i));
+
+	  //Unnormalised
+	  averageBot_un += bottomQ.at(i);
+	  averageBar_un += barrelQ.at(i);
+	  averageBzy_un += bz0y0Q.at(i);
+	  averageBzylt0_un += bzylt0Q.at(i);
+      
+	  bottomDataPoints_un.push_back(bottomQ.at(i)/totQ.at(i));
+	  barrelDataPoints_un.push_back(barrelQ.at(i)/totQ.at(i));
+	  bzyDataPoints_un.push_back(bz0y0Q.at(i)/totQ.at(i));
+	  bzylt0DataPoints_un.push_back(bzylt0Q.at(i)/totQ.at(i));
+      
+	}
+	else if (i % avenum == 0){
+	  count++;
+	  // Average Calculation
+	  averageTot += totQ.at(i);
+	  averageTot /= count;
+
+	  averageBot += bottomQ.at(i)/totQ.at(i);
+	  averageBar += barrelQ.at(i)/totQ.at(i);
+	  averageBzy += bz0y0Q.at(i)/totQ.at(i);
+	  averageBzylt0 += bzylt0Q.at(i)/totQ.at(i);
+	  averageBzyRatio += bzylt0Q.at(i)/bz0y0Q.at(i);
+	  averageBot /= count;
+	  averageBar /= count;
+	  averageBzy /= count;
+	  averageBzylt0 /= count;
+	  averageBzyRatio /= count;
+
+	  bottomDataPoints.push_back(bottomQ.at(i)/totQ.at(i));
+	  barrelDataPoints.push_back(barrelQ.at(i)/totQ.at(i));
+	  bzyDataPoints.push_back(bz0y0Q.at(i)/totQ.at(i));
+	  bzylt0DataPoints.push_back(bzylt0Q.at(i)/totQ.at(i));
+	  bzyRatioDataPoints.push_back(bzylt0Q.at(i)/bz0y0Q.at(i));
+	  totDataPoints.push_back(totQ.at(i));
 
 
-      if (bottomQ.at(i)/bz0y0Q.at(i) > 1.0 && bottomQ.at(i)/bz0y0Q.at(i) < 1.7){
-	bbDataPoints.push_back(bottomQ.at(i)/bz0y0Q.at(i));
-      }
-      totDataPoints.push_back(totQ.at(i));
-      ratioDataPoints.push_back(bottomQ.at(i)/barrelQ.at(i));
-    }
-    else if (i % avenum == 0){
-      count++;
-      // Average Calculation
-      averageTot += totQ.at(i);
-      averageTot /= count;
-      averageRatio += bottomQ.at(i)/barrelQ.at(i);
-      averageRatio /= count;
-      averageBB += bottomQ.at(i)/bz0y0Q.at(i);
-      averageBB /= count;
+	  //Unnormalised
+	  averageBot_un += bottomQ.at(i);
+	  averageBar_un += barrelQ.at(i);
+	  averageBzy_un += bz0y0Q.at(i);
+	  averageBzylt0_un += bzylt0Q.at(i);
+	  averageBot_un /= count;
+	  averageBar_un /= count;
+	  averageBzy_un /= count;
+	  averageBzylt0_un /= count;
 
-      averageBot += bottomQ.at(i)/totQ.at(i);
-      averageBar += barrelQ.at(i)/totQ.at(i);
-      averageBzy += bz0y0Q.at(i)/totQ.at(i);
-      averageBot /= count;
-      averageBar /= count;
-      averageBzy /= count;
+	  bottomDataPoints_un.push_back(bottomQ.at(i));
+	  barrelDataPoints_un.push_back(barrelQ.at(i));
+	  bzyDataPoints_un.push_back(bz0y0Q.at(i));
+	  bzylt0DataPoints_un.push_back(bzylt0Q.at(i));
 
-      totDataPoints.push_back(totQ.at(i));
-      ratioDataPoints.push_back(bottomQ.at(i)/barrelQ.at(i));
-      if (bottomQ.at(i)/bz0y0Q.at(i) > 1.0 && bottomQ.at(i)/bz0y0Q.at(i) < 1.7){
-	bbDataPoints.push_back(bottomQ.at(i)/bz0y0Q.at(i));
-      }
-      bottomDataPoints.push_back(bottomQ.at(i)/totQ.at(i));
-      barrelDataPoints.push_back(barrelQ.at(i)/totQ.at(i));
-      bzyDataPoints.push_back(bz0y0Q.at(i)/totQ.at(i));
+
+	  float max = *std::max_element(totDataPoints.begin(),totDataPoints.end());
+	  float min = *std::min_element(totDataPoints.begin(),totDataPoints.end());
+	  errorTot = (max - min) / (2 * std::sqrt(count));
+	  float maxba = *std::max_element(barrelDataPoints.begin(),barrelDataPoints.end());
+	  float minba = *std::min_element(barrelDataPoints.begin(),barrelDataPoints.end());
+	  errorBar = (maxba - minba) / (2 * std::sqrt(count));
+	  float maxbo = *std::max_element(bottomDataPoints.begin(),bottomDataPoints.end());
+	  float minbo = *std::min_element(bottomDataPoints.begin(),bottomDataPoints.end());
+	  errorBot = (maxbo - minbo) / (2 * std::sqrt(count));
+	  float maxbzy = *std::max_element(bzyDataPoints.begin(),bzyDataPoints.end());
+	  float minbzy = *std::min_element(bzyDataPoints.begin(),bzyDataPoints.end());
+	  errorBzy = (maxbzy - minbzy) / (2 * std::sqrt(count));
+	  float maxbzylt0 = *std::max_element(bzylt0DataPoints.begin(),bzylt0DataPoints.end());
+	  float minbzylt0 = *std::min_element(bzylt0DataPoints.begin(),bzylt0DataPoints.end());
+	  errorBzylt0 = (maxbzylt0 - minbzylt0) / (2 * std::sqrt(count));
+	  float maxbzyratio = *std::max_element(bzyRatioDataPoints.begin(),bzyRatioDataPoints.end());
+	  float minbzyratio = *std::min_element(bzyRatioDataPoints.begin(),bzyRatioDataPoints.end());
+	  errorBzyRatio = (maxbzyratio - minbzyratio) / (2 * std::sqrt(count));
+
+	  errorTotVec.push_back(errorTot);
+	  errorBotVec.push_back(errorBot);
+	  errorBarVec.push_back(errorBar);
+	  errorBzyVec.push_back(errorBzy);
+	  errorBzylt0Vec.push_back(errorBzylt0);
+	  errorBzyRatioVec.push_back(errorBzyRatio);
+
+	  //unnormalised
+	  maxba = *std::max_element(barrelDataPoints_un.begin(),barrelDataPoints_un.end());
+	  minba = *std::min_element(barrelDataPoints_un.begin(),barrelDataPoints_un.end());
+	  errorBar = (maxba - minba) / (2 * std::sqrt(count));
+	  maxbo = *std::max_element(bottomDataPoints_un.begin(),bottomDataPoints_un.end());
+	  minbo = *std::min_element(bottomDataPoints_un.begin(),bottomDataPoints_un.end());
+	  errorBot = (maxbo - minbo) / (2 * std::sqrt(count));
+	  maxbzy = *std::max_element(bzyDataPoints_un.begin(),bzyDataPoints_un.end());
+	  minbzy = *std::min_element(bzyDataPoints_un.begin(),bzyDataPoints_un.end());
+	  errorBzy = (maxbzy - minbzy) / (2 * std::sqrt(count));
+	  maxbzylt0 = *std::max_element(bzylt0DataPoints_un.begin(),bzylt0DataPoints_un.end());
+	  minbzylt0 = *std::min_element(bzylt0DataPoints_un.begin(),bzylt0DataPoints_un.end());
+	  errorBzylt0 = (maxbzylt0 - minbzylt0) / (2 * std::sqrt(count));
+
+	  errorBotVec_un.push_back(errorBot);
+	  errorBarVec_un.push_back(errorBar);
+	  errorBzyVec_un.push_back(errorBzy);
+	  errorBzylt0Vec_un.push_back(errorBzylt0);
+
+      
+	  totDataPoints.clear();
+	  bottomDataPoints.clear();
+	  barrelDataPoints.clear();
+	  bzyDataPoints.clear();
+	  bzylt0DataPoints.clear();
+	  bzyRatioDataPoints.clear();
+
+	  bottomDataPoints_un.clear();
+	  barrelDataPoints_un.clear();
+	  bzyDataPoints_un.clear();
+	  bzylt0DataPoints_un.clear();
       
 
-      float max = *std::max_element(totDataPoints.begin(),totDataPoints.end());
-      float min = *std::min_element(totDataPoints.begin(),totDataPoints.end());
-      errorTot = (max - min) / (2 * std::sqrt(count));
-      //std::cout << max << " " << min << std::endl;
-      float maxsp = *std::max_element(ratioDataPoints.begin(),ratioDataPoints.end());
-      float minsp = *std::min_element(ratioDataPoints.begin(),ratioDataPoints.end());
-      errorRatio = (maxsp - minsp) / (2 * std::sqrt(count));
-      float maxbb = *std::max_element(bbDataPoints.begin(),bbDataPoints.end());
-      float minbb = *std::min_element(bbDataPoints.begin(),bbDataPoints.end());
-      errorBB = (maxbb - minbb) / (2 * std::sqrt(count));
-      //      if (errorBB > 0.05) std::cout << errorBB << std::endl;
-      float maxba = *std::max_element(barrelDataPoints.begin(),barrelDataPoints.end());
-      float minba = *std::min_element(barrelDataPoints.begin(),barrelDataPoints.end());
-      errorBar = (maxba - minba) / (2 * std::sqrt(count));
-      float maxbo = *std::max_element(bottomDataPoints.begin(),bottomDataPoints.end());
-      float minbo = *std::min_element(bottomDataPoints.begin(),bottomDataPoints.end());
-      errorBot = (maxbo - minbo) / (2 * std::sqrt(count));
-      float maxbzy = *std::max_element(bzyDataPoints.begin(),bzyDataPoints.end());
-      float minbzy = *std::min_element(bzyDataPoints.begin(),bzyDataPoints.end());
-      errorBzy = (maxbzy - minbzy) / (2 * std::sqrt(count));
-
       
-      errorTotVec.push_back(errorTot);
-      errorRatioVec.push_back(errorRatio);
-      errorBBVec.push_back(errorBB);
-      errorBotVec.push_back(errorBot);
-      errorBarVec.push_back(errorBar);
-      errorBzyVec.push_back(errorBzy);
-      totDataPoints.clear();
-      ratioDataPoints.clear();
-      bbDataPoints.clear();
-      bottomDataPoints.clear();
-      barrelDataPoints.clear();
-      bzyDataPoints.clear();
+	  // Sort out average vectors
+	  dateVec.push_back(date.Convert());
+	  totQVec.push_back(averageTot);
+	  bottomVec.push_back(averageBot);
+	  barrelVec.push_back(averageBar);
+	  bzyVec.push_back(averageBzy);
+	  bzylt0Vec.push_back(averageBzylt0);
+	  bzyRatioVec.push_back(averageBzyRatio);
+	  bottomVec_un.push_back(averageBot_un);
+	  barrelVec_un.push_back(averageBar_un);
+	  bzyVec_un.push_back(averageBzy_un);
+	  bzylt0Vec_un.push_back(averageBzylt0_un);
+	  averageTot = 0;
+	  averageBot = 0;
+	  averageBar = 0;
+	  averageBzy = 0;
+	  averageBzylt0 = 0;
+	  averageBzyRatio = 0;
+	  averageBot_un = 0;
+	  averageBar_un = 0;
+	  averageBzy_un = 0;
+	  averageBzylt0_un = 0;
+	  count = 0;
+	}
+	else {
+
+	  count++;
+	  averageTot += totQ.at(i);
+	  averageBot += bottomQ.at(i)/totQ.at(i);
+	  averageBar += barrelQ.at(i)/totQ.at(i);
+	  averageBzy += bz0y0Q.at(i)/totQ.at(i);
+	  averageBzylt0 += bzylt0Q.at(i)/totQ.at(i);
+	  averageBzyRatio += bzylt0Q.at(i)/bz0y0Q.at(i);
       
+	  bottomDataPoints.push_back(bottomQ.at(i)/totQ.at(i));
+	  barrelDataPoints.push_back(barrelQ.at(i)/totQ.at(i));
+	  bzyDataPoints.push_back(bz0y0Q.at(i)/totQ.at(i));
+	  bzylt0DataPoints.push_back(bzylt0Q.at(i)/totQ.at(i));
+	  bzyRatioDataPoints.push_back(bzylt0Q.at(i)/bz0y0Q.at(i));
+	  totDataPoints.push_back(totQ.at(i));
 
+	  //Unnormalised
+	  averageBot_un += bottomQ.at(i);
+	  averageBar_un += barrelQ.at(i);
+	  averageBzy_un += bz0y0Q.at(i);
+	  averageBzylt0_un += bzylt0Q.at(i);
       
-      // Sort out average vectors
-      totQVec.push_back(averageTot);
-      ratioQVec.push_back(averageRatio);
-      bbQVec.push_back(averageBB);
-      dateVec.push_back(date.Convert());
-      bottomVec.push_back(averageBot);
-      barrelVec.push_back(averageBar);
-      bzyVec.push_back(averageBzy);
-      averageTot = 0;
-      averageRatio = 0;
-      averageBB = 0;
-      averageBot = 0;
-      averageBar = 0;
-      averageBzy = 0;
-      count = 0;
+	  bottomDataPoints_un.push_back(bottomQ.at(i)/totQ.at(i));
+	  barrelDataPoints_un.push_back(barrelQ.at(i)/totQ.at(i));
+	  bzyDataPoints_un.push_back(bz0y0Q.at(i)/totQ.at(i));
+	  bzylt0DataPoints_un.push_back(bzylt0Q.at(i)/totQ.at(i));
+	
+	}
+      }
+    }//end of loop over data in totQ vector
+
+    //Perform normalisations
+    //only do these for shorter time periods if there is data
+    //totQ currently doesn't get normalised
+    if(totQVec.size() > 1){
+      normalisation(bottomVec,bottomVec.at(1),errorBotVec);
+      normalisation(barrelVec,barrelVec.at(1),errorBarVec);
+      normalisation(bzyVec,bzyVec.at(1),errorBzyVec);
+      normalisation(bzylt0Vec,bzylt0Vec.at(1),errorBzylt0Vec);
+      normalisation(bzyRatioVec,bzyRatioVec.at(1),errorBzyRatioVec);
     }
-    else {
-      averageTot += totQ.at(i);
-      averageRatio += bottomQ.at(i)/barrelQ.at(i);
-      averageBB += bottomQ.at(i)/bz0y0Q.at(i);
-      count++;
-
-      averageBot += bottomQ.at(i)/totQ.at(i);
-      averageBar += barrelQ.at(i)/totQ.at(i);
-      averageBzy += bz0y0Q.at(i)/totQ.at(i);
-
-      totDataPoints.push_back(totQ.at(i));
-      ratioDataPoints.push_back(bottomQ.at(i)/barrelQ.at(i));
-      if (bottomQ.at(i)/bz0y0Q.at(i) > 1.0 && bottomQ.at(i)/bz0y0Q.at(i) < 1.7){
-	bbDataPoints.push_back(bottomQ.at(i)/bz0y0Q.at(i));
-      }
-      bottomDataPoints.push_back(bottomQ.at(i)/totQ.at(i));
-      barrelDataPoints.push_back(barrelQ.at(i)/totQ.at(i));
-      bzyDataPoints.push_back(bz0y0Q.at(i)/totQ.at(i));
-    }
-    
-    
-    if (date.Convert() > time24) {
-      //std::cout << "event " << i << " in last 24 hours" << std::endl;
-      if (i == 0){
-	count24++;
-	averageTot24 += totQ.at(i);
-	averageRatio24 += bottomQ.at(i)/barrelQ.at(i);
-	tot24DataPoints.push_back(totQ.at(i));
-	ratio24DataPoints.push_back(bottomQ.at(i)/barrelQ.at(i));
-	averageBB24 += bottomQ.at(i)/bz0y0Q.at(i);
-	bb24DataPoints.push_back(bottomQ.at(i)/bz0y0Q.at(i));
-      }
-      else if (i % avenum24 == 0){
-	count24++;
-	// Average Calculation
-	averageTot24 += totQ.at(i);
-	averageTot24 /= count24;
-	averageRatio24 += bottomQ.at(i)/barrelQ.at(i);
-	averageRatio24 /= count24;
-	averageBB24 += bottomQ.at(i)/bz0y0Q.at(i);
-	averageBB24 /= count24;
-
-	bbDataPoints.push_back(bottomQ.at(i)/bz0y0Q.at(i));
-	tot24DataPoints.push_back(totQ.at(i));
-	ratio24DataPoints.push_back(bottomQ.at(i)/barrelQ.at(i));
-	
-	float max24 = *std::max_element(tot24DataPoints.begin(),tot24DataPoints.end());
-	float min24 = *std::min_element(tot24DataPoints.begin(),tot24DataPoints.end());
-	errorTot24 = (max24 - min24) / (2 * std::sqrt(count24));
-	//	  std::cout << errorTot24 << std::endl;
-	float ratiomax24 = *std::max_element(ratio24DataPoints.begin(),ratio24DataPoints.end());
-	float ratiomin24 = *std::min_element(ratio24DataPoints.begin(),ratio24DataPoints.end());
-	errorRatio24 = (ratiomax24 - ratiomin24) / (2 * std::sqrt(count24));
-	float maxbb24 = *std::max_element(bb24DataPoints.begin(),bb24DataPoints.end());
-	float minbb24 = *std::min_element(bb24DataPoints.begin(),bb24DataPoints.end());
-	errorBB24 = (maxbb24 - minbb24) / (2 * std::sqrt(count24));
-	errorTot24Vec.push_back(errorTot24);
-	errorRatio24Vec.push_back(errorRatio24);
-	errorBB24Vec.push_back(errorBB24);
-	tot24DataPoints.clear();
-	ratio24DataPoints.clear();
-	bb24DataPoints.clear();
-	
-	// Sort out average vectors
-	totQ24Vec.push_back(averageTot24);
-	ratioQ24Vec.push_back(averageRatio24);
-	bbQ24Vec.push_back(averageBB24);
-	date24Vec.push_back(date.Convert());
-	averageTot24 = 0;
-	averageRatio24 = 0;
-	averageBB24 = 0;
-	count24 = 0;
-      }
-      else {
-	averageTot24 += totQ.at(i);
-	averageRatio24 += bottomQ.at(i)/barrelQ.at(i);
-	count24++;
-	tot24DataPoints.push_back(totQ.at(i));
-	ratio24DataPoints.push_back(bottomQ.at(i)/barrelQ.at(i));
-	averageBB24 += bottomQ.at(i)/bz0y0Q.at(i);
-	bb24DataPoints.push_back(bottomQ.at(i)/bz0y0Q.at(i));
-      }
-      
-    }
-    
-    
-    if (date.Convert() > time6) {
-      if (i == 0){
-	count6++;
-	averageTot6 += totQ.at(i);
-	averageRatio6 += bottomQ.at(i)/barrelQ.at(i);
-	tot6DataPoints.push_back(totQ.at(i));
-	ratio6DataPoints.push_back(bottomQ.at(i)/barrelQ.at(i));
-	averageBB6 += bottomQ.at(i)/bz0y0Q.at(i);
-	bb6DataPoints.push_back(bottomQ.at(i)/bz0y0Q.at(i));
-      }
-      else if (i % avenum6 == 0){
-	count6++;
-	// Average Calculation
-	averageTot6 += totQ.at(i);
-	averageTot6 /= count6;
-	averageRatio6 += bottomQ.at(i)/barrelQ.at(i);
-	averageRatio6 /= count6;
-	averageBB6 += bottomQ.at(i)/bz0y0Q.at(i);
-	averageBB6 /= count6;
-
-	
-	bb6DataPoints.push_back(bottomQ.at(i)/bz0y0Q.at(i));
-	tot6DataPoints.push_back(totQ.at(i));
-	ratio6DataPoints.push_back(bottomQ.at(i)/barrelQ.at(i));
-	
-	float max6 = *std::max_element(tot6DataPoints.begin(),tot6DataPoints.end());
-	float min6 = *std::min_element(tot6DataPoints.begin(),tot6DataPoints.end());
-	errorTot6 = (max6 - min6) / (2 * std::sqrt(count6));
-	//	  std::cout << errorTot6 << std::endl;
-	float ratiomax6 = *std::max_element(ratio6DataPoints.begin(),ratio6DataPoints.end());
-	float ratiomin6 = *std::min_element(ratio6DataPoints.begin(),ratio6DataPoints.end());
-	errorRatio6 = (ratiomax6 - ratiomin6) / (2 * std::sqrt(count6));
-	float maxbb6 = *std::max_element(bb6DataPoints.begin(),bb6DataPoints.end());
-	float minbb6 = *std::min_element(bb6DataPoints.begin(),bb6DataPoints.end());
-	errorBB6 = (maxbb6 - minbb6) / (2 * std::sqrt(count6));
-	errorTot6Vec.push_back(errorTot6);
-	errorRatio6Vec.push_back(errorRatio6);
-	errorBB6Vec.push_back(errorBB6);
-	tot6DataPoints.clear();
-	ratio6DataPoints.clear();
-	bb6DataPoints.clear();
-	
-	
-	// Sort out average vectors
-	totQ6Vec.push_back(averageTot6);
-	ratioQ6Vec.push_back(averageRatio6);
-	bbQ6Vec.push_back(averageBB6);
-	date6Vec.push_back(date.Convert());
-	averageTot6 = 0;
-	averageRatio6 = 0;
-	averageBB6 = 0;
-	count6 = 0;
-      }
-      else {
-	averageTot6 += totQ.at(i);
-	averageRatio6 += bottomQ.at(i)/barrelQ.at(i);
-	count6++;
-	tot6DataPoints.push_back(totQ.at(i));
-	ratio6DataPoints.push_back(bottomQ.at(i)/barrelQ.at(i));
-	averageBB6 += bottomQ.at(i)/bz0y0Q.at(i);
-	bb6DataPoints.push_back(bottomQ.at(i)/bz0y0Q.at(i));
-      }
-      
-    }
-    }
-  }
-
-  //Perform normalisations
-  normalisation(ratioQVec,ratioQVec.at(1),errorRatioVec);
-  normalisation(bbQVec,bbQVec.at(1),errorBBVec);
-  normalisation(bottomVec,bottomVec.at(1),errorBotVec);
-  normalisation(barrelVec,barrelVec.at(1),errorBarVec);
-  normalisation(bzyVec,bzyVec.at(1),errorBzyVec);
-
-  if(ratioQ24Vec.size()>1){
-    normalisation(ratioQ24Vec,ratioQ24Vec.at(1),errorRatio24Vec);
-    normalisation(bbQ24Vec,bbQ24Vec.at(1),errorBB24Vec);
-    //normalisation(bottom24Vec,bottom24Vec.at(1),errorBot24Vec);
-    //normalisation(barrel24Vec,barrel24Vec.at(1),errorBar24Vec);
-    //normalisation(bzy24Vec,bzy24Vec.at(1),errorBzy24Vec);
-  }
-
-  if(ratioQ6Vec.size()>1){
-    normalisation(ratioQ6Vec,ratioQ6Vec.at(1),errorRatio6Vec);
-    normalisation(bbQ6Vec,bbQ6Vec.at(1),errorBB6Vec);
-    //normalisation(bottom6Vec,bottom6Vec.at(1),errorBot6Vec);
-    //normalisation(barrel6Vec,barrel6Vec.at(1),errorBar6Vec);
-    //normalisation(bzy6Vec,bzy6Vec.at(1),errorBzy6Vec);
-  }
   
    
-  if (oNameSwitch == 0) outname = "/home/calib/uk_inj/monitoring/plotting/top_diffuser";
-  std::string tempNameTot = "Total Q (top diffuser)";
-  std::string tempNameRatio = "Charge Ratio (top diffuser) ";
-  std::string tempNameBB = "Charge Ratio (top diffuser - z&y > 0) ";
-  std::string tempNameBot = "Normalised Bottom Q ";
-  std::string tempNameBar = "Normalised Barrel Q ";
-  std::string tempNameBzy = "Normalised Barrel Q (z&y > 0) ";
-  
-  TCanvas c1("c1","", 850, 500);
-  c1.SetGrid();
-  TLegend *leg1 = new TLegend(0.13,0.85,0.9,0.9);
-  TGraphErrors *totQ1 = new TGraphErrors(dateVec.size(), &dateVec[0], &totQVec[0], 0, &errorTotVec[0]);
-  format_plots(totQ1, leg1, 140000,160000, "%m-%d","Tot Q (p.e)",tempNameTot+"All time");
-  std::string printname1 = outname + "_totQ.png";
-  c1.Print(printname1.c_str());
-  
-  TCanvas c3("c3","", 850, 500);
-  c3.SetGrid();
-  TLegend *leg3 = new TLegend(0.13,0.85,0.9,0.9);
-  TGraphErrors *totQ61 = new TGraphErrors(date6Vec.size(), &date6Vec[0], &totQ6Vec[0], 0, &errorTot6Vec[0]);
-  format_plots(totQ61,leg3,140000,160000,"%H:%M","Tot Q (p.e)",tempNameTot+"Past 6h");
-  std::string printname3 = outname + "_totQ_six.png";
-  c3.Print(printname3.c_str());
+    if (oNameSwitch == 0) outname = "/home/calib/uk_inj/monitoring/plotting/top_diffuser";
+    std::string tempNameTot = "Total Q (top diffuser)";
+    std::string tempNameBot = "Normalised Bottom Q ";
+    std::string tempNameBar = "Normalised Barrel Q ";
+    std::string tempNameBzy = "Normalised Barrel Q (z&y > 0) ";
+    std::string tempNameBzylt0 = "Normalised Barrel Q (z&y < 0) ";
+    std::string tempNameBzyRatio = "Normalised inj charge ratio (z&y<0 / z&y>0) ";
 
-  TCanvas c5("c5","", 850, 500);
-  c5.SetGrid();
-  TLegend *leg5 = new TLegend(0.13,0.85,0.9,0.9);
-  TGraphErrors *totQ241 = new TGraphErrors(date24Vec.size(), &date24Vec[0], &totQ24Vec[0], 0, &errorTot24Vec[0]);
-  format_plots(totQ241, leg5, 140000,160000,"%H:%M","Tot Q (p.e)",tempNameTot+"Past 24h");
-  std::string printname5 = outname + "_totQ_day.png";
-  c5.Print(printname5.c_str());
+    if(period==1){
+      periodTitle = "Past 6h";
+      periodFileEnd = "_six";
+    }
+    else if(period==2){
+      periodTitle = "Past 24h";
+      periodFileEnd = "_day";
+    }
+    else{
+      periodTitle = "All time";
+      periodFileEnd = "";
+    } 
 
-  
-  TCanvas c2("c2","", 850, 500);
-  c2.SetGrid();
-  TLegend *leg2 = new TLegend(0.75,0.8,0.9,0.9);
-  TGraphErrors *ratioQ1 = new TGraphErrors(dateVec.size(), &dateVec[0], &ratioQVec[0], 0, &errorRatioVec[0]);
-  format_plots(ratioQ1, leg2, 0.3, 0.6,"%m-%d","bottomQ/barrelQ",tempNameRatio+"All time");
-  std::string printname2 = outname + "_ratioQ.png";
-  c2.Print(printname2.c_str());
-  
-  TCanvas c4("c4","", 850, 500);
-  c4.SetGrid();
-  TLegend *leg4 = new TLegend(0.75,0.8,0.9,0.9);
-  TGraphErrors *ratioQ61 = new TGraphErrors(date6Vec.size(), &date6Vec[0], &ratioQ6Vec[0], 0, &errorRatio6Vec[0]);
-  format_plots(ratioQ61, leg4, 0.3, 0.6,"%H:%M","bottomQ/barrelQ",tempNameRatio+"Past 6h");
-  std::string printname4 = outname + "_ratioQ_six.png";
-  c4.Print(printname4.c_str());
-  
-  TCanvas c6("c6","", 850, 500);
-  c6.SetGrid();
-  TLegend *leg6 = new TLegend(0.75,0.8,0.9,0.9);
-  TGraphErrors *ratioQ241 = new TGraphErrors(date24Vec.size(), &date24Vec[0], &ratioQ24Vec[0], 0, &errorRatio24Vec[0]);
-  format_plots(ratioQ241, leg6, 0.3, 0.6,"%H:%M","bottomQ/barrelQ",tempNameRatio+"Past 24h");
-  std::string printname6 = outname + "_ratioQ_day.png";
-  c6.Print(printname6.c_str());
+    //Total charge
+    TCanvas c1("c1","", 850, 500);
+    c1.SetGrid();
+    TLegend *leg1 = new TLegend(0.13,0.85,0.9,0.9);
+    TGraphErrors *totQ1 = new TGraphErrors(dateVec.size(), &dateVec[0], &totQVec[0], 0, &errorTotVec[0]);
+    format_plots(totQ1, leg1, 140000,160000, "%m-%d","Tot Q (p.e)",tempNameTot+periodTitle);
+    std::string printname1 = outname + "_totQ" + periodFileEnd + ".png";
+    c1.Print(printname1.c_str());
 
-  TCanvas c7("c7","", 850, 500);
-  c7.SetGrid();
-  TLegend *leg7 = new TLegend(0.75,0.8,0.9,0.9);
-  TGraphErrors *bbQ1 = new TGraphErrors(dateVec.size(), &dateVec[0], &bbQVec[0], 0, &errorBBVec[0]);
-  format_plots(bbQ1, leg7, 1.37, 1.55,"%m-%d","bottomQ/barrelQ",tempNameBB+"All time");
-  std::string printname7 = outname + "_bbQ.png";
-  c7.Print(printname7.c_str());
+    //Bottom charge - normalised
+    TCanvas c2("c2","", 850, 500);
+    c2.SetGrid();
+    TLegend *leg2 = new TLegend(0.75,0.8,0.9,0.9);
+    TGraphErrors *botQ1 = new TGraphErrors(dateVec.size(), &dateVec[0], &bottomVec[0], 0, &errorBotVec[0]);
+    format_plots(botQ1, leg2, 1.37, 1.55,"%m-%d","bottomQ/totQ",tempNameBot+periodTitle);
+    std::string printname2 = outname + "_botQ" + periodFileEnd + ".png";
+    c2.Print(printname2.c_str());
 
-  TCanvas c8("c8","", 850, 500);
-  c8.SetGrid();
-  TLegend *leg8 = new TLegend(0.75,0.8,0.9,0.9);
-  TGraphErrors *bbQ61 = new TGraphErrors(date6Vec.size(), &date6Vec[0], &bbQ6Vec[0], 0, &errorBB6Vec[0]);
-  format_plots(bbQ61, leg8, 1.37, 1.55,"%H:%M","bottomQ/barrelQ",tempNameBB+"Past 6h");
-  std::string printname8 = outname + "_bbQ_six.png";
-  c8.Print(printname8.c_str());
+    //Barrel charge - normalised
+    TCanvas c3("c3","", 850, 500);
+    c3.SetGrid();
+    TLegend *leg3 = new TLegend(0.75,0.8,0.9,0.9);
+    TGraphErrors *barQ1 = new TGraphErrors(dateVec.size(), &dateVec[0], &barrelVec[0], 0, &errorBarVec[0]);
+    format_plots(barQ1, leg3, 1.37, 1.55,"%m-%d","barrelQ/totQ",tempNameBar+periodTitle);
+    std::string printname3 = outname + "_barQ" + periodFileEnd + ".png";
+    c3.Print(printname3.c_str());
 
-  TCanvas c9("c9","", 850, 500);
-  c9.SetGrid();
-  TLegend *leg9 = new TLegend(0.75,0.8,0.9,0.9);
-  TGraphErrors *bbQ241 = new TGraphErrors(date24Vec.size(), &date24Vec[0], &bbQ24Vec[0], 0, &errorBB24Vec[0]);
-  format_plots(bbQ241, leg9, 1.37, 1.55,"%H:%M","bottomQ/barrelQ",tempNameBB+"Past 24h");
-  std::string printname9 = outname + "_bbQ_day.png";
-  c9.Print(printname9.c_str());
+    //Barrel z&y > 0 - normalised
+    TCanvas c4("c4","", 850, 500);
+    c4.SetGrid();
+    TLegend *leg4 = new TLegend(0.75,0.8,0.9,0.9);
+    TGraphErrors *bzyQ1 = new TGraphErrors(dateVec.size(), &dateVec[0], &bzyVec[0], 0, &errorBzyVec[0]);
+    format_plots(bzyQ1, leg4, 1.37, 1.55,"%m-%d","bz0y0Q/totQ",tempNameBzy+periodTitle);
+    std::string printname4 = outname + "_bzyQ" + periodFileEnd + ".png";
+    c4.Print(printname4.c_str());
 
+    //Barrel z&y < 0 - normalised
+    TCanvas c5("c5", "", 850, 500);
+    c5.SetGrid();
+    TLegend *leg5 = new TLegend(0.75, 0.8, 0.9, 0.9);
+    TGraphErrors *bzylt0Q1 = new TGraphErrors(dateVec.size(), &dateVec[0], &bzylt0Vec[0], 0, &errorBzylt0Vec[0]);
+    format_plots(bzylt0Q1, leg5, 0.8, 1.2, "%m-%d", "bzylt0Q/totQ", tempNameBzylt0+periodTitle);
+    std::string printname5 = outname + "_bzylt0Q" + periodFileEnd + ".png";
+    c5.Print(printname5.c_str());
 
-  TCanvas c10("c10","", 850, 500);
-  c10.SetGrid();
-  TLegend *leg10 = new TLegend(0.75,0.8,0.9,0.9);
-  TGraphErrors *botQ1 = new TGraphErrors(dateVec.size(), &dateVec[0], &bottomVec[0], 0, &errorBotVec[0]);
-  format_plots(botQ1, leg10, 1.37, 1.55,"%m-%d","bottomQ/totQ",tempNameBot+"All Time");
-  std::string printname10 = outname + "_botQ.png";
-  c10.Print(printname10.c_str());
+    //Barrel z&y<0 / z&y>0 (longest/shortest) - normalised
+    TCanvas c6("c6", "", 850, 500);
+    c6.SetGrid();
+    TLegend *leg6 = new TLegend(0.75, 0.8, 0.9, 0.9);
+    TGraphErrors *bzyRatio = new TGraphErrors(dateVec.size(), &dateVec[0], &bzyRatioVec[0], 0, &errorBzyRatioVec[0]);
+    format_plots(bzyRatio, leg6, 0.8, 1.2, "%m-%d", "longest/shortest", tempNameBzyRatio+periodTitle);
+    std::string printname6 = outname + "_bzyRatioQ" + periodFileEnd + ".png";
+    c6.Print(printname6.c_str());
 
-  TCanvas c11("c11","", 850, 500);
-  c11.SetGrid();
-  TLegend *leg11 = new TLegend(0.75,0.8,0.9,0.9);
-  TGraphErrors *barQ1 = new TGraphErrors(dateVec.size(), &dateVec[0], &barrelVec[0], 0, &errorBarVec[0]);
-  format_plots(barQ1, leg11, 1.37, 1.55,"%m-%d","barrelQ/totQ",tempNameBar+"All Time");
-  std::string printname11 = outname + "_barQ.png";
-  c11.Print(printname11.c_str());
-
-  TCanvas c12("c12","", 850, 500);
-  c12.SetGrid();
-  TLegend *leg12 = new TLegend(0.75,0.8,0.9,0.9);
-  TGraphErrors *bzyQ1 = new TGraphErrors(dateVec.size(), &dateVec[0], &bzyVec[0], 0, &errorBzyVec[0]);
-  format_plots(bzyQ1, leg12, 1.37, 1.55,"%m-%d","bz0y0Q/totQ",tempNameBzy+"All Time");
-  std::string printname12 = outname + "_bzyQ.png";
-  c12.Print(printname12.c_str());
-
-  return 0;
+  }//end of loop over different periods
   
 }
 
 
 
 
-void extract_data(std::ifstream &file,std::vector<double> &totQ, std::vector<double> &barrelQ,std::vector<int> &year,std::vector<int> &month,std::vector<int> &day,std::vector<int> &hour,std::vector<int> &minute,std::vector<int> &second,std::vector<double> &bottomQ,std::vector<double> &bz0y0Q){
+void extract_data(std::ifstream &file,std::vector<double> &totQ, std::vector<double> &barrelQ,std::vector<int> &year,std::vector<int> &month,std::vector<int> &day,std::vector<int> &hour,std::vector<int> &minute,std::vector<int> &second,std::vector<double> &bottomQ,std::vector<double> &bz0y0Q,std::vector<double> &bzylt0Q){
 
   std::string line;
   getline(file,line);
@@ -554,7 +462,7 @@ void extract_data(std::ifstream &file,std::vector<double> &totQ, std::vector<dou
     barrelQ.push_back(std::stod(entries.at(9)));
     bz0y0Q.push_back(std::stod(entries.at(10)));
     bottomQ.push_back(std::stod(entries.at(11)));
-    //bzlt0y0Q.push_back(std::stod(entries.at(12)));
+    bzylt0Q.push_back(std::stod(entries.at(12)));
   }
 }
 
@@ -653,3 +561,25 @@ void setMinMax(TGraph *g){
 
 }
 
+//function to read the dark noise .dat file and put the information into vectors passed
+void extract_dark_data(std::ifstream &file, std::vector<UInt_t> &time, std::vector<float> &chg){
+
+  std::string line;
+  getline(file, line);
+
+  while(getline(file, line)){
+    std::stringstream line_stream(line);
+    std::string entry;
+    std::vector<std::string> entries;
+    char delim = ' ';
+
+    while(getline(line_stream, entry, delim)){
+      entries.push_back(entry);
+    }
+
+    time.push_back((UInt_t)std::stoi(entries.at(0)));
+    chg.push_back(std::stod(entries.at(1)));
+  }
+
+
+}

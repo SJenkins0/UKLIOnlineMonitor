@@ -1,6 +1,5 @@
 #!/bin/csh -f
 
-#source /usr/local/sklib_gcc8/cshenv_gcc8_skofl_21b+atmpd_21b
 source /usr/local/sklib_gcc8/skofl_r30333/env.csh
 source /usr/local/sklib_gcc8/root_v6.22.06_python3.6/bin/thisroot.csh
 

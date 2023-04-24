@@ -8,7 +8,6 @@ set nrun = `printf "%06d" $1`
 set nnn  = `echo $nrun | cut -c 1-4`
 
 set WDIR = /home/calib/uk_inj/monitoring/
-#set SUBDIR = /disk02/calib3/usr/ukli/monitoring/rundir/subList/
 set SUBDIR = /disk2/disk03/calib4/usr/ukli/monitoring/rundir/subList/
 
 #set IDIR = /disk02/data7/sk$SKRUN/$mode/$nnn/$nrun
@@ -31,7 +30,6 @@ if ( -d $IDIR ) then
       set imax = `wc -l < $SRUNFILE`
 
       if ($count == 3) then #sleeps up to 1m30
-        #echo "Correcting old file $fname"
         $WDIR/conv.sh $mode $nrun $i
 	$WDIR/extraction.csh $nrun $i
 	$WDIR/extractiontop.csh $nrun $i
@@ -41,7 +39,6 @@ if ( -d $IDIR ) then
       if ($i < $imax) then
 	set count = 0
 	if ( -e $fname ) then
-      	    #echo "Correcting old file $fname"
 	    $WDIR/conv.sh $mode $nrun $i
 	    $WDIR/extraction.csh $nrun $i
 	    $WDIR/extractiontop.csh $nrun $i

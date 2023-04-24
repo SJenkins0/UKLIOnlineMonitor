@@ -5,7 +5,7 @@ set SKRUN=7
 
 source /home/calib/.cshrc
 source /usr/local/sklib_gcc8/skofl_r30333/env.csh
-set maxcpu = 60
+set maxcpu = 20
 
 #Set up disk paths now that we've had to move calib area to disk2
 set DISK2=/disk2/disk03/calib4/usr/ukli
@@ -39,9 +39,6 @@ set file1 = $workdir/newlist.txt
 set i = 1
 set list = `less $file1`
 set imax = $#list
-#echo $imax
-#echo "first element =" ${list[$i]}
-#echo "last element =" ${list[$imax]}
 
 
 while($i <= $imax)
@@ -66,7 +63,7 @@ while ($njobs >= $maxcpu)
 echo 'njobs used = ' $njobs
 sleep 1
 unset njobs
-set njobs=`pjstat calib | grep calib | wc -l`
+set njobs=`pjstat | grep calib | wc -l`
 end
 chmod u+x $rundir/ukli_$runnum.sh
 pjsub -o $logdir/ukli_$runnum.log -e $logdir/ukli_$runnum.err -L rscgrp=calib --mail-list s.j.jenkins@liverpool.ac.uk -m e $rundir/ukli_$runnum.sh

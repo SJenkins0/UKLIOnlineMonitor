@@ -11,6 +11,7 @@ set WEBDIR=/home/calib/public_html/water_scattering/monitoring/uk_gdload
 set exec=$PLOTDIR/plotting
 set execMon=$PLOTDIR/monPlot
 set execTop=$PLOTDIR/topDiff
+set execNoise=$PLOTDIR/noise
 set var=`date +'%m%d%y'`
 
 
@@ -56,10 +57,12 @@ set i=2
 end
 yes | cp $RUNDIR/top_dif.dat $WEBDIR/text/
 
+
+$exec > & $RUNDIR/logn.txt
 $exec -d > & $RUNDIR/logd.txt
 $exec -c > & $RUNDIR/logc.txt
-$execMon -d > $RUNDIR/log.txt
-$execMon -c > $RUNDIR/log.txt
+#$execMon -d > $RUNDIR/log.txt
+#$execMon -c > $RUNDIR/log.txt
 $execTop > & $RUNDIR/logt.txt
 
 #move files to webpage dirs

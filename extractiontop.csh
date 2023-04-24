@@ -11,7 +11,7 @@ set mode = run
 set RUNDIR = /disk2/disk03/calib4/usr/ukli/monitoring/rundir/
 set DATADIR = /disk2/disk03/calib4/usr/ukli/monitoring/data/
 set ODIR = /disk2/disk03/calib4/usr/ukli/monitoring/extDat/$nrun
-set EXEC = /home/calib/uk_inj/backLog/top_diff/top_diff_new
+set EXEC = /home/calib/uk_inj/backLog/top_diff/top_diff
 
 
 if ( ! -d $ODIR ) then

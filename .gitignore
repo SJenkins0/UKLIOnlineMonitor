@@ -1,3 +1,7 @@
 #Ignore whatever these files are
 ._*
+.d00*
+
+#Don't need backups or images
 *~
+*.png

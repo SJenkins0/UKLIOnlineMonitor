@@ -2,6 +2,9 @@
 #
 # Script to run UKLI selcalib monitoring
 # S. Jenkins 31/5/22
+#
+# Last updated 24/4/23
+
 
 setenv PATH /usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
 source /home/calib/.cshrc
