@@ -97,7 +97,8 @@ int main(int argc, char *argv[]){
   std::ofstream out;
   std::string outFile = ldir+"/noise.dat";
   out.open(outFile.c_str());
-    
+
+  UInt_t lastTime = 0;
   for (int i=0; i<events.size(); i++){
     UInt_t timeVal = events.at(i).first;
     float noiseVal = events.at(i).second;

@@ -4,4 +4,6 @@
 
 #Don't need backups or images
 *~
-*.png
+**/*.png
+
+monitor.log

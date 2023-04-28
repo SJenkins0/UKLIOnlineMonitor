@@ -58,7 +58,7 @@ end
 yes | cp $RUNDIR/top_dif.dat $WEBDIR/text/
 
 
-$exec > & $RUNDIR/logn.txt
+$execNoise > & $RUNDIR/logn.txt
 $exec -d > & $RUNDIR/logd.txt
 $exec -c > & $RUNDIR/logc.txt
 #$execMon -d > $RUNDIR/log.txt
