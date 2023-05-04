@@ -50,10 +50,9 @@ enum class topGeom{
 
 void extract_dark_data(std::ifstream &file,  std::vector<UInt_t> &time, std::vector<float> &chg);
 void extract_data(std::ifstream &file, std::vector<double> &totQ,std::vector<double> &barrelQ,std::vector<UInt_t> &dateEv,std::vector<double> &bottomQ,std::vector<double> &bz0y0Q,std::vector<double> &bzylt0Q);
-void format_plots(TGraph *graph1,TLegend *leg ,float min, float max, std::string timeform, std::string yaxis, std::string title);
-void format_plots_multi(TGraph *graph1, TGraph *graph2, TLegend *leg,float min, float max, std::string timeform, std::string yaxis, std::string title);
+void format_plots(TGraphErrors *graph1,TLegend *leg ,float min, float max, std::string timeform, std::string yaxis, std::string title);
 void normalisation(std::vector<float> &in, float normVal, std::vector<float> &error);
-void setMinMax(TGraph *g);
+void setMinMax(TGraphErrors *g);
 int getPMTsInTop(const topGeom& geom);
 float sdCalc(std::vector<float> vect);
 
@@ -118,11 +117,11 @@ int main(int argc, char *argv[]){
   for (int period=0; period<3; period++){
     //Need to set period specific values
     if (period == 1){
-      avenum = 40;
+      avenum = 100;
       time = timer-21600;
     }
     else if (period == 2){
-      avenum = 200;
+      avenum = 400;
       time = timer-86400;
     }
     else avenum = 2000;
@@ -771,7 +770,7 @@ void extract_data(std::ifstream &file,std::vector<double> &totQ, std::vector<dou
 }
 
 
-void format_plots(TGraph *graph1,TLegend *leg,float min, float max, std::string timeform, std::string yaxis, std::string title){
+void format_plots(TGraphErrors *graph1,TLegend *leg,float min, float max, std::string timeform, std::string yaxis, std::string title){
 
   TDatime now;
 
@@ -800,39 +799,6 @@ void format_plots(TGraph *graph1,TLegend *leg,float min, float max, std::string 
 }
 
 
-void format_plots_multi(TGraph *graph1, TGraph *graph2, TLegend *leg,float min, float max, std::string timeform, std::string yaxis, std::string title){
-
-  TDatime now;
-
-  title = title + "(" + now.GetDate() + ")";
-  
-  graph1->SetMarkerStyle(20);
-  graph1->SetMarkerColor(2);
-  graph1->SetLineColor(2);
-  graph1->SetMarkerSize(0.4);
-  graph2->SetMarkerStyle(20);
-  graph2->SetMarkerColor(4);
-  graph2->SetLineColor(4);
-  graph2->SetMarkerSize(0.4);
-  graph1->Draw("aZpsame");
-  graph2->Draw("Zpsame");
-  graph1->SetFillColor(0);
-  graph1->GetYaxis()->SetTitle(yaxis.c_str());
-  graph1->SetTitle(title.c_str());
-  graph1->GetYaxis()->SetRangeUser(min,max);
-  graph1->GetXaxis()->SetTimeDisplay(1);
-  graph1->GetXaxis()->SetTimeFormat(timeform.c_str());
-  graph1->GetXaxis()->SetTimeOffset(0,"jst");
-
-  //leg->SetBorderSize(0);
-  leg->SetFillColor(0);
-  leg->AddEntry(graph1, "All Barrel", "p" );
-  leg->AddEntry(graph2, "z > 0 && y > 0", "p" );
-  leg->Draw();
-  
-}
-
-
 
 void normalisation(std::vector<float> &in, float normVal, std::vector<float> &error){
 
@@ -846,9 +812,9 @@ void normalisation(std::vector<float> &in, float normVal, std::vector<float> &er
 }
 
 //Automatically set min and max values
-void setMinMax(TGraph *g){
+void setMinMax(TGraphErrors *g){
 
-  double min, max;
+  double min, max, minerr, maxerr;
   const long long N = g->GetN();
   long long ind[N];
   //Sort smallest to largest
@@ -856,10 +822,12 @@ void setMinMax(TGraph *g){
 
   min = g->GetY()[ind[0]];
   max = g->GetY()[ind[N-1]];
-  if(max > 1.003*g->GetY()[ind[N-2]]) max = g->GetY()[ind[N-2]];
-  if(min < 0.998*g->GetY()[ind[1]])   min = g->GetY()[ind[1]];
+  minerr = g->GetErrorY(ind[0]);
+  maxerr = g->GetErrorY(ind[N-1]);
+  if(max > 1.003*g->GetY()[ind[N-2]]){ max = g->GetY()[ind[N-2]]; maxerr = g->GetErrorY(ind[N-2]);}
+  if(min < 0.998*g->GetY()[ind[1]]){   min = g->GetY()[ind[1]]; minerr = g->GetErrorY(ind[1]);}
   
-  g->GetYaxis()->SetRangeUser(0.999*min, 1.001*max);
+  g->GetYaxis()->SetRangeUser(0.999*(min-minerr), 1.001*(max+maxerr));
 
 }
 
